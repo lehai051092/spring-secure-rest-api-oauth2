@@ -1,5 +1,6 @@
 package example.springsecurerestapioauth2.controller;
 
+import example.springsecurerestapioauth2.annotation.CurrentOwner;
 import example.springsecurerestapioauth2.model.CashCard;
 import example.springsecurerestapioauth2.model.repositories.CashCardRepository;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +13,7 @@ import java.net.URI;
 @RequestMapping("/cashcards")
 public class CashCardController {
 
-    private CashCardRepository cashCards;
+    private final CashCardRepository cashCards;
 
     public CashCardController(CashCardRepository cashCards) {
         this.cashCards = cashCards;
@@ -26,8 +27,13 @@ public class CashCardController {
     }
 
     @PostMapping
-    private ResponseEntity<CashCard> createCashCard(@RequestBody CashCard newCashCardRequest, UriComponentsBuilder ucb) {
-        CashCard savedCashCard = cashCards.save(newCashCardRequest);
+    private ResponseEntity<CashCard> createCashCard(
+            @RequestBody CashCard newCashCardRequest,
+            UriComponentsBuilder ucb,
+            @CurrentOwner String owner
+    ) {
+        CashCard cashCard = new CashCard(newCashCardRequest.amount(), owner);
+        CashCard savedCashCard = cashCards.save(cashCard);
         URI locationOfNewCashCard = ucb
                 .path("cashcards/{id}")
                 .buildAndExpand(savedCashCard.id())
@@ -35,8 +41,10 @@ public class CashCardController {
         return ResponseEntity.created(locationOfNewCashCard).body(savedCashCard);
     }
 
+    // Maybe use Authentication or @CurrentSecurityContext
     @GetMapping
-    public ResponseEntity<Iterable<CashCard>> findAll() {
-        return ResponseEntity.ok(this.cashCards.findAll());
+    public ResponseEntity<Iterable<CashCard>> findAll(@CurrentOwner String owner) {
+        var result = cashCards.findByOwner(owner);
+        return ResponseEntity.ok(result);
     }
 }
