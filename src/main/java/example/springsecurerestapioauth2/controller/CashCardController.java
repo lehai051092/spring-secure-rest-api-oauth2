@@ -41,10 +41,9 @@ public class CashCardController {
         return ResponseEntity.created(locationOfNewCashCard).body(savedCashCard);
     }
 
-    // Maybe use Authentication or @CurrentSecurityContext
+    // Maybe use Authentication or @CurrentSecurityContext or @CurrentOwner
     @GetMapping
-    public ResponseEntity<Iterable<CashCard>> findAll(@CurrentOwner String owner) {
-        var result = cashCards.findByOwner(owner);
-        return ResponseEntity.ok(result);
+    public ResponseEntity<Iterable<CashCard>> findAll() {
+        return ResponseEntity.ok(cashCards.findAll());
     }
 }

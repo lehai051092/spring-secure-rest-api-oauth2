@@ -33,6 +33,7 @@ class SpringSecureRestApiOauth2ApplicationTests {
                 .andExpect(jsonPath("$.owner").value("sarah1"));
     }
 
+    @WithMockUser(username="esuez5")
     @Test
     @DirtiesContext
     void shouldCreateANewCashCard() throws Exception {
@@ -48,11 +49,10 @@ class SpringSecureRestApiOauth2ApplicationTests {
                 .andExpect(header().exists("Location"))
                 .andReturn().getResponse().getHeader("Location");
 
-        assert location != null;
         this.mvc.perform(get(location))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.amount").value(250.00))
-                .andExpect(jsonPath("$.owner").value("sarah1"));
+                .andExpect(jsonPath("$.owner").value("esuez5"));
     }
 
     @Test
@@ -62,5 +62,4 @@ class SpringSecureRestApiOauth2ApplicationTests {
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$..owner").value(everyItem(equalTo("sarah1"))));
     }
-
 }
