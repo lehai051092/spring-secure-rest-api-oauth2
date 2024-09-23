@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@WithMockUser(username = "sarah1")
+@WithMockUser(username = "sarah1", authorities = {"SCOPE_cashcard:read"})
 class SpringSecureRestApiOauth2ApplicationTests {
 
     @Autowired
@@ -33,7 +33,7 @@ class SpringSecureRestApiOauth2ApplicationTests {
                 .andExpect(jsonPath("$.owner").value("sarah1"));
     }
 
-    @WithMockUser(username="esuez5")
+    @WithMockUser(username="esuez5", authorities = {"SCOPE_cashcard:read", "SCOPE_cashcard:write"})
     @Test
     @DirtiesContext
     void shouldCreateANewCashCard() throws Exception {
