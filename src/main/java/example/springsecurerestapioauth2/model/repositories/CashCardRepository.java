@@ -8,9 +8,8 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 public interface CashCardRepository extends CrudRepository<CashCard, Long> {
-    Iterable<CashCard> findByOwner(String cardNumber);
+    Iterable<CashCard> findByOwner(String owner);
 
-    @NonNull
     default Iterable<CashCard> findAll() {
         SecurityContext context = SecurityContextHolder.getContext();
         Authentication authentication = context.getAuthentication();

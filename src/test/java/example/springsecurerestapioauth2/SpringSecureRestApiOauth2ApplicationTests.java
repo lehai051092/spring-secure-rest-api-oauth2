@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@WithMockUser(username = "sarah1", authorities = {"SCOPE_cashcard:read"})
+@WithMockUser(username = "sarah1", authorities = {"SCOPE_cashcard:read", "SCOPE_cashcard:write"})
 class SpringSecureRestApiOauth2ApplicationTests {
 
     @Autowired
@@ -33,7 +33,7 @@ class SpringSecureRestApiOauth2ApplicationTests {
                 .andExpect(jsonPath("$.owner").value("sarah1"));
     }
 
-    @WithMockUser(username="esuez5", authorities = {"SCOPE_cashcard:read", "SCOPE_cashcard:write"})
+    @WithMockUser(username = "esuez5", authorities = {"SCOPE_cashcard:read", "SCOPE_cashcard:write"})
     @Test
     @DirtiesContext
     void shouldCreateANewCashCard() throws Exception {
@@ -41,10 +41,10 @@ class SpringSecureRestApiOauth2ApplicationTests {
                         .with(csrf())
                         .contentType("application/json")
                         .content("""
-                        {
-                            "amount" : 250.00
-                        }
-                        """))
+                                {
+                                    "amount" : 250.00
+                                }
+                                """))
                 .andExpect(status().isCreated())
                 .andExpect(header().exists("Location"))
                 .andReturn().getResponse().getHeader("Location");
@@ -61,5 +61,12 @@ class SpringSecureRestApiOauth2ApplicationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$..owner").value(everyItem(equalTo("sarah1"))));
+    }
+
+    @WithMockUser(username = "esuez5", authorities = {"SCOPE_cashcard:read"})
+    @Test
+    void shouldReturnForbiddenWhenCardBelongsToSomeoneElse() throws Exception {
+        this.mvc.perform(get("/cashcards/99"))
+                .andExpect(status().isForbidden());
     }
 }

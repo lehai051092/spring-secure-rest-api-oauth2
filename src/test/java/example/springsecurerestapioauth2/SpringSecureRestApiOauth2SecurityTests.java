@@ -24,6 +24,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -38,73 +39,65 @@ public class SpringSecureRestApiOauth2SecurityTests {
     @Autowired
     private MockMvc mvc;
 
-    private String mint() {
-        return mint(consumer -> {
-        });
-    }
+	@Test
+	void shouldNotAllowTokensWithAnInvalidAudience() throws Exception {
+		String token = mint((claims) -> claims.audience(List.of("https://wrong")));
+		this.mvc.perform(get("/cashcards/1000").header("Authorization", "Bearer " + token))
+				.andExpect(status().isUnauthorized())
+				.andExpect(header().string("WWW-Authenticate", containsString("aud claim is not valid")));
 
-    private String mint(Consumer<JwtClaimsSet.Builder> consumer) {
-        JwtClaimsSet.Builder builder = JwtClaimsSet.builder()
-                .issuedAt(Instant.now())
-                .expiresAt(Instant.now().plusSeconds(100000))
-                .subject("sarah1")
-                .issuer("http://localhost:9000")
-                .audience(List.of("cashcard-client"))
-                .claim("scp", Arrays.asList("cashcard:read", "cashcard:write"));
-        consumer.accept(builder);
-        JwtEncoderParameters parameters = JwtEncoderParameters.from(builder.build());
-        return this.jwtEncoder.encode(parameters).getTokenValue();
-    }
+	}
+
+	@Test
+	void shouldNotAllowTokensThatAreExpired() throws Exception {
+		String token = mint((claims) -> claims
+				.issuedAt(Instant.now().minusSeconds(3600))
+				.expiresAt(Instant.now().minusSeconds(3599))
+		);
+		this.mvc.perform(get("/cashcards/1000").header("Authorization", "Bearer " + token))
+				.andExpect(status().isUnauthorized())
+				.andExpect(header().string("WWW-Authenticate", containsString("Jwt expired")));
+	}
+
+	@Test
+	void shouldShowAllTokenValidationErrors() throws Exception {
+		String expired = mint((claims) -> claims
+				.audience(List.of("https://wrong"))
+				.issuedAt(Instant.now().minusSeconds(3600))
+				.expiresAt(Instant.now().minusSeconds(3599))
+		);
+		this.mvc.perform(get("/cashcards").header("Authorization", "Bearer " + expired))
+				.andExpect(status().isUnauthorized())
+				.andExpect(header().exists("WWW-Authenticate"))
+				.andExpect(jsonPath("$.errors..description").value(
+						containsInAnyOrder(containsString("Jwt expired"), containsString("aud claim is not valid"))));
+	}
+
+	private String mint() {
+		return mint(consumer -> {});
+	}
+
+	private String mint(Consumer<JwtClaimsSet.Builder> consumer) {
+		JwtClaimsSet.Builder builder = JwtClaimsSet.builder()
+				.issuedAt(Instant.now())
+				.expiresAt(Instant.now().plusSeconds(100000))
+				.subject("sarah1")
+				.issuer("http://localhost:9000")
+				.audience(List.of("cashcard-client"))
+				.claim("scp", Arrays.asList("cashcard:read", "cashcard:write"));
+		consumer.accept(builder);
+		JwtEncoderParameters parameters = JwtEncoderParameters.from(builder.build());
+		return this.jwtEncoder.encode(parameters).getTokenValue();
+	}
 
 
-    @TestConfiguration
-    static class TestJwtConfiguration {
-        @Bean
-        JwtEncoder jwtEncoder(
-                @Value("classpath:authz.pub") RSAPublicKey pub,
-                @Value("classpath:authz.pem") RSAPrivateKey pem
-        ) {
-            RSAKey key = new RSAKey.Builder(pub).privateKey(pem).build();
-            return new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(key)));
-        }
-    }
-
-    @Test
-    void shouldRequireValidTokens() throws Exception {
-        String token = mint();
-        this.mvc.perform(get("/cashcards/100").header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void shouldNotAllowTokensWithAnInvalidAudience() throws Exception {
-        String token = mint((claims) -> claims.audience(List.of("https://wrong")));
-
-        this.mvc.perform(get("/cashcards/100").header("Authorization", "Bearer " + token))
-                .andExpect(status().isUnauthorized())
-                .andExpect(header().string("WWW-Authenticate", containsString("aud claim is not valid")));
-    }
-
-    @Test
-    void shouldNotAllowTokensThatAreExpired() throws Exception {
-        String token = mint((claims) -> claims
-                .issuedAt(Instant.now().minusSeconds(3600))
-                .expiresAt(Instant.now().minusSeconds(3599))
-        );
-        this.mvc.perform(get("/cashcards/100").header("Authorization", "Bearer " + token))
-                .andExpect(status().isUnauthorized())
-                .andExpect(header().string("WWW-Authenticate", containsString("Jwt expired")));
-    }
-
-    @Test
-    void shouldShowAllTokenValidationErrors() throws Exception {
-        String expired = mint((claims) -> claims
-                .audience(List.of("https://wrong"))
-                .issuedAt(Instant.now().minusSeconds(3600))
-                .expiresAt(Instant.now().minusSeconds(3599))
-        );
-        this.mvc.perform(get("/cashcards").header("Authorization", "Bearer " + expired))
-                .andExpect(status().isUnauthorized())
-                .andExpect(header().exists("WWW-Authenticate"));
-    }
+	@TestConfiguration
+	static class TestJwtConfiguration {
+		@Bean
+		JwtEncoder jwtEncoder(@Value("classpath:authz.pub") RSAPublicKey pub,
+							  @Value("classpath:authz.pem") RSAPrivateKey pem) {
+			RSAKey key = new RSAKey.Builder(pub).privateKey(pem).build();
+			return new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(key)));
+		}
+	}
 }
